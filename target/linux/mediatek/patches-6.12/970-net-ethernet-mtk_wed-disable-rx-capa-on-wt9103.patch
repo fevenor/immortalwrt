@@ -1,0 +1,33 @@
+From: WT9103 bring-up
+Subject: [PATCH] net: ethernet: mtk_wed: disable RX capability on NRadio WT9103
+
+NRadio WT9103 (MT7981, WED v2) can keep WED attached for TX acceleration
+but is unstable with the WED v2 RX datapath enabled. The failure shows up
+as mt7915 TX free notification parsing warnings followed by random memory
+corruption crashes under sustained eth1 <-> Wi-Fi traffic.
+
+Make the workaround strictly device-specific by matching the board
+compatible string. Other MT7981/MT7986 WED v2 devices keep the existing
+RX capability behavior.
+
+--- a/include/linux/soc/mediatek/mtk_wed.h
++++ b/include/linux/soc/mediatek/mtk_wed.h
+@@ -5,6 +5,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/regmap.h>
+ #include <linux/pci.h>
++#include <linux/of.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
+ 
+@@ -251,8 +252,11 @@ mtk_wed_device_attach(struct mtk_wed_dev
+ 
+ static inline bool mtk_wed_get_rx_capa(struct mtk_wed_device *dev)
+ {
+ #ifdef CONFIG_NET_MEDIATEK_SOC_WED
++	if (of_machine_is_compatible("nradio,wt9103"))
++		return false;
++
+ 	if (dev->version == 3)
+ 		return dev->wlan.hw_rro;
+ 
